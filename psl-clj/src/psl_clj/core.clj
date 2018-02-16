@@ -1,11 +1,13 @@
 (ns psl-clj.core
   "A clojure user interface for PSL"
   (:require
+   [clj-util.core :as u]
    [clojure.tools.logging :as log]
    [incanter.core :as in]
-   [clj-util.core :as u]
+   [psl-clj.Model]
    )
   (:import
+   [psl_clj Model]
    [org.linqs.psl.application.inference MPEInference LazyMPEInference]
    [org.linqs.psl.application.util GroundRules Grounding]
    [org.linqs.psl.database DataStore Database Partition]
@@ -159,9 +161,7 @@
 (defn model-new
   "Return a new PSLModel associated with the given DataStore."
   [data-store]
-  (org.linqs.psl.groovy.PSLModel.
-   ""
-   data-store))
+  (Model. "" data-store))
 
 (defn mpe-inference 
   "Call mpeInference on the inference app."
@@ -296,8 +296,8 @@
           
 (defn pred-col-names
   "Get column names for a given predicate as a list of keywords"
-  [model pred-name] 
-  (vec (map keyword (vec (.getArgumentNames (.getPredicate model pred-name))))))
+  [model pred-name]
+  (vec (map keyword (vec (.argNames model pred-name)))))
 
 (defn pred-col-ordered-dataset
   "Reorder columns of a dataset according to the predicate's arguments."
