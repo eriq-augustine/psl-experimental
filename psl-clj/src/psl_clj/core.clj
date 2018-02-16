@@ -240,8 +240,6 @@
   []
   (u/uuid-int))
 
-(def partition-id-next (atom 0))
-
 (defn partition-new
   "Return a unique partition within this session."
   []
