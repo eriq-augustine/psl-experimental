@@ -7,6 +7,7 @@ PSL Experimental
 This repository contains experimental extensions of PSL.
 
 The following modules are provided by psl-experimental:
+ - psl-clj
  - psl-datasplitter
  - psl-ltn
  - psl-mosek
