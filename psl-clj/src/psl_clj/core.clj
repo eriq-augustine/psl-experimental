@@ -68,8 +68,7 @@
                        
 (defn add-rule [model formula weight squared name]
   "Add a compatibility rule to the model."        
-  (let [rk (WeightedLogicalRule. formula weight squared)]
-    (.setName rk name)
+  (let [rk (WeightedLogicalRule. formula weight squared name)]
     (.addRule model rk)))
 
 ;;; =============== Other functions for using PSL ====================
