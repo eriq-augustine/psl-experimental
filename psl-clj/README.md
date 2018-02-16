@@ -1,6 +1,6 @@
 # Example
 
-Install [Leiningen](https://leiningen.org).  Then, create a new example application called `myproj` using PSL.
+Install [Leiningen](https://leiningen.org).  Then, create a new example application called `myproj` from the `template` directory.
 
 ```
 lein new psl-clj myproj
