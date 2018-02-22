@@ -234,18 +234,11 @@
      (doseq [partition partitions]
        (partition-delete datastore partition))
      (count partitions))))
-                    
-(defn partition-id-new
-  "Return an integer that is (probably!) unique within this session."
-  []
-  (u/uuid-int))
 
 (defn partition-new
-  "Return a unique partition within this session."
-  []
-  (let [id (partition-id-new)
-        part-name (str id)]
-    (Partition. id part-name)))
+  "Return a new partition within this session."
+  [datastore]
+  (.getNewPartition datastore))
 
 ;;; =============== Functions for handling data in PSL ====================
 
