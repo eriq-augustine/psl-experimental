@@ -3,7 +3,7 @@
   (:require
    [incanter.core :as in]
    [clojure.java.io :as io]
-   [psl-clj.core :as psl]
+   [psl-clojure.core :as psl]
    [clj-util.core :as u]
    )
   (:import

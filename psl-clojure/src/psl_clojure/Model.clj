@@ -1,4 +1,4 @@
-(ns psl-clj.Model
+(ns psl-clojure.Model
   (:gen-class
    :extends org.linqs.psl.groovy.PSLModel
    :state state

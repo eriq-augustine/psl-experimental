@@ -3,7 +3,7 @@
 Install [Leiningen](https://leiningen.org).  Then, create a new example application called `myproj` from the `template` directory.
 
 ```
-lein new psl-clj myproj
+lein new psl-clojure myproj
 cd myproj
 ```
 

@@ -49,7 +49,7 @@
 		<module>psl-sampler</module>
 		<module>psl-weightlearning</module>
 		<module>psl-mosek</module>
-		<module>psl-clj</module>
+		<module>psl-clojure</module>
 	</modules>
 
 	<repositories>

@@ -1,13 +1,13 @@
-(ns psl-clj.core
+(ns psl-clojure.core
   "A clojure user interface for PSL"
   (:require
    [clj-util.core :as u]
    [clojure.tools.logging :as log]
    [incanter.core :as in]
-   [psl-clj.Model]
+   [psl-clojure.Model]
    )
   (:import
-   [psl_clj Model]
+   [psl_clojure Model]
    [org.linqs.psl.application.groundrulestore AtomRegisterGroundRuleStore]
    [org.linqs.psl.application.inference MPEInference LazyMPEInference]
    [org.linqs.psl.application.util GroundRules Grounding]

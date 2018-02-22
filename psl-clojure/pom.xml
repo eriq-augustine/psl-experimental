@@ -20,9 +20,9 @@
 	 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.linqs</groupId>
-  <artifactId>psl-clj</artifactId>
+  <artifactId>psl-clojure</artifactId>
   <packaging>jar</packaging>
-  <name>psl-clj</name>
+  <name>psl-clojure</name>
   <description>A clojure user interface for PSL</description>
   <parent>
     <groupId>org.linqs</groupId>
