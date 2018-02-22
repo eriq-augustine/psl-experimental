@@ -1,7 +1,7 @@
 (ns psl-clojure.core
   "A clojure user interface for PSL"
   (:require
-   [clj-util.core :as u]
+   [clj-util.core :as cu]
    [clojure.tools.logging :as log]
    [incanter.core :as in]
    [psl-clojure.Model]
@@ -129,7 +129,7 @@
        (println (str "INFE: " (.getInfeasibility gr)))
        (println (str "INCO: " (.getIncompatibility gr))))
      (println (str "CLAS: " (.getSimpleName (.getClass gr))))
-     (u/printlnw (str "STRI: " gr) 100)
+     (cu/printlnw (str "STRI: " gr) 100)
      (doseq [a (.getAtoms gr)]
        (println (str "ATOM: " (.getValue a) ":" a)))))
   ;; With rule name
@@ -140,7 +140,7 @@
 (defn ground-rules-sample
   "Return a sample of the ground rules up to a maximum size n."
   [ground-rules n]
-  (u/random-sample-n (seq ground-rules) n))
+  (cu/random-sample-n (seq ground-rules) n))
 
 (defn ground-rules-stratified-sample
   "Return a sample of ground rules, with up to n of each rule."
