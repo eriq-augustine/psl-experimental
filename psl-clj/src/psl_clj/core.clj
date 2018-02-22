@@ -8,16 +8,17 @@
    )
   (:import
    [psl_clj Model]
+   [org.linqs.psl.application.groundrulestore AtomRegisterGroundRuleStore]
    [org.linqs.psl.application.inference MPEInference LazyMPEInference]
    [org.linqs.psl.application.util GroundRules Grounding]
-   [org.linqs.psl.database DataStore Database Partition]
-   [org.linqs.psl.model.term UniqueStringID Variable Term Constant]
+   [org.linqs.psl.database DataStore Database Partition Queries]
+   [org.linqs.psl.database.atom PersistedAtomManager]
    [org.linqs.psl.database.rdbms RDBMSDataStore]
    [org.linqs.psl.model.atom QueryAtom]
    [org.linqs.psl.model.formula Conjunction Disjunction Negation Formula Implication]
    [org.linqs.psl.model.rule.logical UnweightedGroundLogicalRule
     UnweightedLogicalRule WeightedLogicalRule]
-   [org.linqs.psl.database Queries]
+   [org.linqs.psl.model.term UniqueStringID Variable Term Constant]
    [java.util HashSet]
    ))
 
@@ -321,11 +322,11 @@
      (if include-value 
        (in/dataset (conj col-ns :value)
                    (for [atom atoms]
-                     (flatten [(for [arg (.getArguments atom)] (.toString arg))
+                     (flatten [(for [arg (.getArguments atom)] (.getID arg))
                                (.getValue atom)])))
        (in/dataset col-ns 
                    (for [atom atoms]
-                     (for [arg (.getArguments atom)] (.toString arg)))))))
+                     (for [arg (.getArguments atom)] (.getID arg)))))))
   ;; Without a database
   ([model datastore parts-read pred-name include-value]
    (let [
@@ -337,11 +338,45 @@
      (close-db db)
      res)))
 
+(defn round-atoms
+  "Round atoms of open predicates using conditional probabilities, per
+  Bach et al, 2015 and Goemans and D. P. Williamson., 1994."
+  [database model open-predicates]
+  (let [mgrs (AtomRegisterGroundRuleStore.)]
+    (Grounding/groundAll model (PersistedAtomManager. database) mgrs)
+    (let [atoms (for [rv-pred open-predicates
+                      atom (Queries/getAllAtoms database rv-pred)]
+                  atom)
+          ;; Sort by descending truth value: not known whether this is helpful
+          atoms (sort (comparator (fn [x y] (> (.getValue x) (.getValue y)))) 
+                      atoms)]
+      ;; Starting from an arbitrary atom, greedily discretize all
+      (doseq [atom atoms]
+        (dosync          ; These comparisons cannot be done concurrently
+         (let [opts                      ; Discrete options, with scores
+               (for [possible-val [0.0 1.0]]  ; Possible discrete values
+                 (dosync                 ; Avoid concurrency
+                  (.setValue atom possible-val) ; Temporarily try value
+                  (let [score              ; Score for this value
+                        (reduce
+                         +
+                         (for [gr (.getRegisteredGroundRules mgrs atom)]
+                           (dosync
+                            (GroundRules/getExpectedWeightedLogicalCompatibility gr))))]
+                    {:val possible-val :score score})))
+               best-val (:val (last (sort-by :score opts)))]
+           (.setValue atom best-val)      ; Keep the best value
+           (.commitToDB atom))         ; Change value in DB
+         )))))
+
 (defn to-variables "Wrap a list as a list of Variables."
   [args]     
   (for [a args]
     (Variable. (name a))))
 
 (defn uid "Return a Unique ID from the provided DataStore. "
-  [datastore string]
-  (.getUniqueID datastore string))
+  ([string]
+   (UniqueStringID. string))
+  ([datastore string]
+   (log/warn "Unique IDs no longer require data stores")
+   (UniqueStringID. string)))
