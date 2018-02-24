@@ -19,88 +19,107 @@ The prompt shows that you are in the namespace for the `src/myproj/core.clj` fil
 (def m (psl/model-new ds))
 ```
 
-Apply a rule for a toy problem to the model.  The rule, which is defined in `core.clj`, says that all dogs are mammals.
+Add the predicates and rules for a simple problem to the model.  The predicates and rules rule are defined in `src/myproj/core.clj`.
 
 ```
-(VOCAB m)
-(DOGS-ARE-MAMMALS m 1.0 false)
+(predicates m)
+(rules m ds)
 ```
 
-Running `(println m)` will print the current model: `{1.0} DOG(N) >> MAMMAL(N)`.  Create a dataset of two dogs.
+Running `(psl/model-print m)` will print the current model, which predicts who knows whom in a small group of people.  Some of the answer is known; load it from `data/knows_obs.txt`.
 
 ```
-(def dogs (in/dataset [:n] [["Fido"] ["Furry"]]))
+(def knows-obs (ini/read-dataset "data/knows_obs.txt" :delim '\tab :header true))
 ```
 
-Running `dogs` will print the dataset.
+Running `knows-obs` will print the dataset.
 
 ```
-|    :n |
-|-------|
-|  Fido |
-| Furry |
+|    :p1 |    :p2 |
+|--------+--------|
+|    Ben |  Elena |
+|    Ben | Dhanya |
+|   Arti |   Alex |
+| Sabina | Dhanya |
 ```
 
 Create a PSL partition to hold this observed data, then write the dataset to that partition.
 
 ```
-(def obs (psl/partition-new))
-(psl/pred-append ds obs (psl/p m "dog") dogs)
+(def obs (psl/partition-new ds))
+(psl/pred-append ds obs (psl/p m "knows") knows-obs)
 ```
 
-You can look up documentation for any function, e.g., `(doc psl/pred-append)`.  You can run `(psl/pred-read m ds [obs] "dog" true)` to check that the data is written to PSL.  Make another partition to hold the results of inference, then run inference.
+You can look up documentation for any function, e.g., `(doc psl/pred-append)`.  You can run `(psl/pred-read m ds [obs] "knows" true)` to check that the data is written to PSL and that all observations have truth value `1.0`.  Load the remaining observed data.
 
 ```
-(def res (psl/partition-new))
-(inference cb ds m obs res ["dog"])
+(def likes-obs (ini/read-dataset "data/likes_obs.txt" :delim '\tab :header true))
+(def lived-obs (ini/read-dataset "data/lived_obs.txt" :delim '\tab :header true))
+(psl/pred-append ds obs (psl/p m "likes") likes-obs)
+(psl/pred-append ds obs (psl/p m "lived") lived-obs)
 ```
 
-Confirm that all dogs are mammals with `(psl/pred-read m ds [res] "mammal" true)`.  Each atom has a truth value of `1.0`.
+Make another partition to hold the results of inference, then run inference.
 
 ```
-|    :n | :value |
-|-------+--------|
-| Furry |    1.0 |
-|  Fido |    1.0 |
+(def target (psl/partition-new ds))
+(def knows-targets (ini/read-dataset "data/knows_targets.txt" :delim '\tab :header true))
+(psl/pred-append ds target (psl/p m "knows") knows-targets)
+(def closed-preds ["lived" "likes"])
+(inference cb ds m obs target closed-preds)
 ```
 
-This is an interactive session, so we can change the data and rules as we like.  Suppose there's a third animal but we're only 50% sure it's a dog.
+Print five atoms with the highest truth value in the MPE state. 
 
 ```
-(def more-dogs (in/dataset [:n :value] [["George" 0.5]]))
-(psl/pred-append ds obs (psl/p m "dog") more-dogs)
-(inference cb ds m obs res ["dog"])
-```
-
-Now `(psl/pred-read m ds [res] "mammal" true)` shows the updated inference result.
-
-```
-|     :n | :value |
-|--------+--------|
-|  Furry |    1.0 |
-|   Fido |    1.0 |
-| George |    0.5 |
-```
-
-Also, for some reason we think mammals are rare.  Add a prior with weight `0.75` saying this.
-
-```
-(psl/add-rule m (psl/NOT (mammal 'N)) 0.75 true "MAMMALS ARE RARE")
-```
-
-Update inference and check the result.
-
-```
-(inference cb ds m obs res ["dog"])
-(psl/pred-read m ds [res] "mammal" true)
+(in/sel
+ (in/$order [:value] :desc
+            (psl/pred-read m ds [target] "knows" true))
+ :rows (range 5))
 ```
 
 ```
-|     :n |              :value |
-|--------+---------------------|
-|  Furry |          0.66667873 |
-|   Fido |          0.66667873 |
-| George | 0.49900774400000003 |
+|    :p1 |    :p2 |             :value |
+|--------+--------+--------------------|
+|   Alex |   Arti | 0.9981735348701477 |
+| Dhanya | Sabina | 0.9980729818344116 |
+|  Elena |    Ben | 0.9930140972137451 |
+| Dhanya |    Ben | 0.9921430349349976 |
+|  Elena |   Alex | 0.6123796105384827 |
 ```
 
-To see the final ground model, run `(psl/ground-rules-print-summary grs)`.
+Print a sample of the ground model:
+
+```
+(psl/ground-rules-print-summary
+   (psl/ground-rules-stratified-sample grs 1))
+```
+
+Load the correct answer and evaluate the result of the model.
+
+```
+(def knows-truth (ini/read-dataset "data/knows_truth.txt" :delim '\tab :header true))
+(def truth (psl/partition-new ds))
+(psl/pred-append ds truth (psl/p m "knows") knows-truth)
+
+(let [evaluator (ContinuousEvaluator.)
+      rv-db (let [dummy-write (psl/partition-new ds)]
+              (psl/open-db ds m [target] dummy-write closed-preds))
+      truth-db (let [dummy-write (psl/partition-new ds)]
+                 (psl/open-db ds m [truth] dummy-write closed-preds))
+      open-pred (psl/p m "knows")]
+  (.compute evaluator rv-db truth-db open-pred)
+  (prn (.toString (.getAllStats evaluator))))
+```
+
+```
+"MAE: 0.440447, MSE: 0.240337"
+```
+
+Save the result to a file, sorted by truth value.
+
+```
+(save (in/$order [:value] :desc
+                 (psl/pred-read m ds [target] "knows" true))
+      "knows.txt")
+```

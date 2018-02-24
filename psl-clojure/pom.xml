@@ -41,6 +41,11 @@
       <version>${psl-core-version}</version>
     </dependency>
     <dependency>
+      <groupId>org.linqs</groupId>
+      <artifactId>psl-evaluation</artifactId>
+      <version>${psl-core-version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
       <version>1.8.0</version>
