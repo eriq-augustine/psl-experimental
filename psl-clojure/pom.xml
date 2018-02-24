@@ -43,7 +43,7 @@
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.7.0</version>
+      <version>1.8.0</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -53,18 +53,17 @@
     <dependency>
       <groupId>org.clojars.alexmemory</groupId>
       <artifactId>clj-util</artifactId>
-      <version>0.1.0</version>
+      <version>0.1.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>incanter</groupId>
       <artifactId>incanter-core</artifactId>
-      <version>1.5.6</version>
-      <exclusions>
-        <exclusion>
-          <groupId>net.sourceforge.jplasma</groupId>
-          <artifactId>jplasma</artifactId>
-        </exclusion>
-      </exclusions>
+      <version>1.5.7</version>
+    </dependency>
+    <dependency>
+      <groupId>incanter</groupId>
+      <artifactId>incanter-io</artifactId>
+      <version>1.5.7</version>
     </dependency>
   </dependencies>
   <distributionManagement>
