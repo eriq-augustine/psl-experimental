@@ -16,50 +16,61 @@
    [org.linqs.psl.database.rdbms RDBMSDataStore]
    [org.linqs.psl.model.atom QueryAtom]
    [org.linqs.psl.model.formula Conjunction Disjunction Negation Formula Implication]
+   [org.linqs.psl.model.rule UnweightedGroundRule WeightedGroundRule]
    [org.linqs.psl.model.rule.logical UnweightedGroundLogicalRule
     UnweightedLogicalRule WeightedLogicalRule]
    [org.linqs.psl.model.term UniqueStringID Variable Term Constant]
+   [org.linqs.psl.parser ModelLoader]
    [java.util HashSet]
    ))
 
 ;;; ================== Building PSL models ===========================
-         
-(defn AND                
+
+(defn AND
   "Return a PSL conjunction formula over given formulas."
-  [& args]                                
+  [& args]
   (Conjunction. (into-array Formula args)))
-                                          
+
 (defn OR
   "Return a PSL disjunction formula over given formulas."
-  [& args]                                
+  [& args]
   (Disjunction. (into-array Formula args)))
-                                          
-(defn IMPL                                
+
+(defn IMPL
   "Return a PSL rule formula for the given body and head formulas."
   [body head]
   (Implication. body head))
-                   
-(defn NOT          
+
+(defn NOT
   "Return a PSL negation formula over the given formula."
   [formula]
-  (Negation. formula))                
-                     
-(defmacro add-predicate 
+  (Negation. formula))
+
+(defn NEQ [term1 term2]
+  "Return a PSL functional predicate stating that term1 != term2."
+  (QueryAtom.
+   org.linqs.psl.model.predicate.SpecialPredicate/NotEqual
+   (into-array
+    Term
+    (for [a [term1 term2]]
+      (if (symbol? a) (Variable. (name a)) a)))))
+
+(defmacro add-predicate
   "Add the specified predicate to the model."
   [model pred-name argmap]
-  `(do 
+  `(do
      (.add ~model                     ; Add the predicate to the model
-           (java.util.HashMap. 
+           (java.util.HashMap.
             (assoc ~argmap "predicate" (name '~pred-name)))) ; Add 'predicate'
      (defn ~pred-name [& ~'args]    ; A function returning a QueryAtom
-       (QueryAtom. 
+       (QueryAtom.
         (.getPredicate ~model (name '~pred-name)) ; Predicate from name
         (into-array                               ; Array of Terms
-         Term 
+         Term
          (for [~'a ~'args]
            (if (symbol? ~'a) (Variable. (name ~'a)) ~'a)))))))
-                                      
-(defmacro add-pred-constraint         
+
+(defmacro add-pred-constraint
   "Add a predicate constraint to the model."
   [model predicate constraint-type cname]
   `(do
@@ -68,28 +79,41 @@
       ~constraint-type
       {"on" (.getPredicate ~model (name '~predicate))
        "name" ~cname})))
-                       
+
 (defn add-rule [model formula weight squared name]
-  "Add a compatibility rule to the model."        
-  (let [rk (WeightedLogicalRule. formula weight squared name)]
-    (.addRule model rk)))
+  "Add a logical rule to the model."
+  (let [rule (WeightedLogicalRule. formula weight squared name)]
+    (.addRule model rule)))
+
+(defn add-rule-string
+  "Add a rule formatted as a string to the model."
+  ([model datastore rule-string weight squared]
+   (let [partial-rule (ModelLoader/loadRulePartial datastore rule-string)
+         rule (do (assert (not (.isRule partial-rule)))
+                  (.toRule partial-rule weight squared))]
+     (.addRule model rule)))
+  ([model datastore rule-string]
+   (let [partial-rule (ModelLoader/loadRulePartial datastore rule-string)
+         rule (do (assert (.isRule partial-rule))
+                  (.toRule partial-rule))]
+     (.addRule model rule))))
 
 ;;; =============== Other functions for using PSL ====================
-                          
-(defn close-db            
+
+(defn close-db
   "Close Database, catching an IllegalStateException if it is already closed."
   [database]
   (try
     (.close database)
     (catch IllegalStateException e (str "caught exception: " (.getMessage e)))))
-                                                                               
-(defn close-open-dbs "Close all open databases and returns their count."      
-  [datastore]                                                            
+
+(defn close-open-dbs "Close all open databases and returns their count."
+  [datastore]
   (let [dbs (.getOpenDatabases datastore)
         num (count dbs)]
     (doseq [d dbs] (close-db d))
     num))
-        
+
 (defn default-inference
   "Return an app for MPE inference using the configuration."
   [model database config-bundle]
@@ -115,21 +139,18 @@
   [ground-rules]
   (sort (distinct (for [gr ground-rules] (.getName (.getRule gr))))))
 
-(defn ground-rules-print-summary         
+(defn ground-rules-print-summary
   "Print a summary of ground rules."
   ;; Without rule name
   ([ground-rules]
    (doseq [gr (ground-rules-by-name-sort ground-rules)]
-     (println (str 
-               (clojure.string/join (repeat 30 "="))
-               (.getName (.getRule gr))
-               (clojure.string/join (repeat 30 "="))
-               ))
-     (if (instance? UnweightedGroundLogicalRule gr)
-       (println (str "INFE: " (.getInfeasibility gr)))
-       (println (str "INCO: " (.getIncompatibility gr))))
+     (cu/println-center (.getName (.getRule gr)) "=" 79)
+     (println (cond (instance? UnweightedGroundRule gr)
+                    (str "INFE: " (.getInfeasibility gr))
+                    (instance? WeightedGroundRule gr)
+                    (str "INCO: " (.getIncompatibility gr))))
      (println (str "CLAS: " (.getSimpleName (.getClass gr))))
-     (cu/printlnw (str "STRI: " gr) 100)
+     (cu/printlnw (str "STRI: " gr) 79)
      (doseq [a (.getAtoms gr)]
        (println (str "ATOM: " (.getValue a) ":" a)))))
   ;; With rule name
@@ -164,7 +185,12 @@
   [data-store]
   (Model. "" data-store))
 
-(defn mpe-inference 
+(defn model-print
+  "Print the given model."
+  [model]
+  (println (.toString model)))
+
+(defn mpe-inference
   "Call mpeInference on the inference app."
   [inference-app]
   (log/info "inference:: ::starting")
@@ -181,20 +207,20 @@
                            (for [pname preds-to-close]
                              (.getPredicate model pname)))]
        (.getDatabase datastore part-to-write preds-to-close parts-to-read)))
-  
+
   ;; No predicates to close
   ([datastore model parts-to-read part-to-write]
      {:pre [(not-any? nil? [datastore model parts-to-read part-to-write])]}
      (let [parts-to-read (into-array Partition parts-to-read)]
        (.getDatabase datastore part-to-write parts-to-read)))
-  
+
   ;; No predicates to close or write partition
   ([datastore model parts-to-read]
      {:pre [(not-any? nil? [datastore model parts-to-read])]}
      (let [parts-to-read (into-array Partition parts-to-read)]
        (.getDatabase datastore (first parts-to-read) parts-to-read))))
-                                                                     
-(defn p                                                 
+
+(defn p
   "Get a predicate object from the PSL model"
   [model pred-name]
   (.getPredicate model pred-name))
@@ -214,20 +240,20 @@
       nil
       (finally (close-db dbr)
                (close-db dbw)))))
-                                       
-(defn partition-delete                 
+
+(defn partition-delete
   "Delete the contents of the partition in the datastore."
   [datastore partition] (.deletePartition datastore partition))
-                                                              
-(defn partitions-delete                                       
+
+(defn partitions-delete
   "Delete the contents of the partitions in the datastore."
-  
+
   ;; Selected partitions
   ([datastore partitions]
    (doseq [partition partitions]
      (partition-delete datastore partition))
    (count partitions))
-  
+
   ;; All partitions
   ([datastore]
    (let [partitions (.listPartitions datastore)]
@@ -242,7 +268,7 @@
 
 ;;; =============== Functions for handling data in PSL ====================
 
-(defn pred-append                                   
+(defn pred-append
   "Add ground atoms to PSL from a dataset. The dataset's columns must
   be ordered according to the order of arguments of the predicate.
   See pred-col-ordered-dataset."
@@ -287,7 +313,7 @@
                     Constant
                     (for [t r] (UniqueStringID. t))))]
          (.commit database (.setValue atom 1.0)))))))
-          
+
 (defn pred-col-names
   "Get column names for a given predicate as a list of keywords"
   [model pred-name]
@@ -306,18 +332,18 @@
   (in/$order
    (pred-col-names model predicate-name) :asc dataset))
 
-(defn pred-read                                                            
+(defn pred-read
   "Read a table from the PSL DB"
   ;; With a supplied database
   ([model db pred-name include-value]
    (let [atoms (Queries/getAllAtoms db (p model pred-name))
          col-ns (pred-col-names model pred-name)]
-     (if include-value 
+     (if include-value
        (in/dataset (conj col-ns :value)
                    (for [atom atoms]
                      (flatten [(for [arg (.getArguments atom)] (.getID arg))
                                (.getValue atom)])))
-       (in/dataset col-ns 
+       (in/dataset col-ns
                    (for [atom atoms]
                      (for [arg (.getArguments atom)] (.getID arg)))))))
   ;; Without a database
@@ -341,7 +367,7 @@
                       atom (Queries/getAllAtoms database rv-pred)]
                   atom)
           ;; Sort by descending truth value: not known whether this is helpful
-          atoms (sort (comparator (fn [x y] (> (.getValue x) (.getValue y)))) 
+          atoms (sort (comparator (fn [x y] (> (.getValue x) (.getValue y))))
                       atoms)]
       ;; Starting from an arbitrary atom, greedily discretize all
       (doseq [atom atoms]
@@ -363,7 +389,7 @@
          )))))
 
 (defn to-variables "Wrap a list as a list of Variables."
-  [args]     
+  [args]
   (for [a args]
     (Variable. (name a))))
 
