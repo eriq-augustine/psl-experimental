@@ -178,7 +178,7 @@
   (for [k (.getRules model)]
     (if (instance? UnweightedLogicalRule k)
       {:kind "constraint" :name (.getName k)}
-      {:kind "compatibility" :name (.getName k) :weight (.getWeight (.getWeight k))})))
+      {:kind "compatibility" :name (.getName k) :weight (.getWeight k)})))
 
 (defn model-new
   "Return a new PSLModel associated with the given DataStore."
