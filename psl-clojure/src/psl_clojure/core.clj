@@ -2,6 +2,8 @@
   "A clojure user interface for PSL"
   (:require
    [clj-util.core :as cu]
+   [clojure.data.csv :as csv]
+   [clojure.java.io :as io]
    [clojure.string :as cljs]
    [clojure.tools.logging :as log]
    [incanter.core :as in]
@@ -308,6 +310,24 @@
         (.getInserter datastore predicate write-partition)
         (to-array r) ; Arguments
         ))))
+  ;; Without a database, in bulk
+  ([datastore write-partition predicate dataset temp-bulk-load-path]
+   (if (some #{:value} (:column-names dataset))
+     ;; Insert with value
+     (do
+       (assert (= (last (:column-names dataset)) :value))
+       (with-open [fout (io/writer temp-bulk-load-path)]
+         (csv/write-csv fout (in/to-list dataset) :separator \tab))
+       (.loadDelimitedDataTruth
+        (.getInserter datastore predicate write-partition)
+        temp-bulk-load-path))
+     ;; Insert without value
+     (do
+       (with-open [fout (io/writer temp-bulk-load-path)]
+         (csv/write-csv fout (in/to-list dataset) :separator \tab))
+       (.loadDelimitedData
+        (.getInserter datastore predicate write-partition)
+        temp-bulk-load-path))))
   ;; With a database
   ([database predicate dataset]
    (if (some #{:value} (:column-names dataset))
