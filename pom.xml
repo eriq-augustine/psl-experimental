@@ -47,6 +47,8 @@
 		<module>psl-datasplitter</module>
 		<module>psl-optimize</module>
 		<module>psl-mosek</module>
+		<module>psl-clojure</module>
+		<module>psl-clojure/template</module>
 	</modules>
 
 	<repositories>
