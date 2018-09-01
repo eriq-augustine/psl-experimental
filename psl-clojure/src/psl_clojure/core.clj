@@ -2,6 +2,7 @@
   "A clojure user interface for PSL"
   (:require
    [clj-util.core :as cu]
+   [clojure.string :as cljs]
    [clojure.tools.logging :as log]
    [incanter.core :as in]
    [psl-clojure.Model]
@@ -189,6 +190,23 @@
   "Print the given model."
   [model]
   (println (.toString model)))
+
+(defn model-load
+  "Return a model loaded from a file.  The given datastore must
+  already have all the predicates used.  See model-save."
+  [datastore model-file-path]
+  (let [model-string (slurp model-file-path)
+        ;; Work-around for PSL.g4 and Negation.toString issue
+        model-string (cljs/replace model-string #"~\( (.+) \)" "~$1")
+        model (model-new datastore)
+        ]
+    (.addRules model model-string)
+    model))
+
+(defn model-save
+  "Save the model to a file."
+  [model model-file-path]
+  (spit model-file-path (.asString model)))
 
 (defn mpe-inference
   "Call mpeInference on the inference app."
