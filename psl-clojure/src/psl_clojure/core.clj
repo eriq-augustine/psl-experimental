@@ -425,6 +425,17 @@
            (.setValue atom best-val)      ; Keep the best value
            (.commitToDB atom))         ; Change value in DB
          )))))
+(defn round-atoms-simple
+  "Round atoms of open predicates, interpreting truth values as
+  rounding probabilities."
+  [database open-predicates]
+  (log/infof "round:: ::starting")
+  (doseq [rv-pred open-predicates]
+    (let [atoms (Queries/getAllAtoms database rv-pred)]
+      (doseq [atom atoms]           
+        (let [val-new (if (> (rand) (.getValue atom)) 0 1)]
+          (.setValue atom val-new) 
+          (dosync (.commitToDB atom)))))))
 
 (defn to-variables "Wrap a list as a list of Variables."
   [args]
