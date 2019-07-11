@@ -400,31 +400,47 @@
   Bach et al, 2015 and Goemans and D. P. Williamson., 1994."
   [database model open-predicates]
   (let [mgrs (AtomRegisterGroundRuleStore.)]
-    (Grounding/groundAll model (PersistedAtomManager. database) mgrs)
-    (let [atoms (for [rv-pred open-predicates
-                      atom (Queries/getAllAtoms database rv-pred)]
-                  atom)
-          ;; Sort by descending truth value: not known whether this is helpful
-          atoms (sort (comparator (fn [x y] (> (.getValue x) (.getValue y))))
-                      atoms)]
-      ;; Starting from an arbitrary atom, greedily discretize all
-      (doseq [atom atoms]
-        (dosync          ; These comparisons cannot be done concurrently
-         (let [opts                      ; Discrete options, with scores
-               (for [possible-val [0.0 1.0]]  ; Possible discrete values
-                 (dosync                 ; Avoid concurrency
-                  (.setValue atom possible-val) ; Temporarily try value
-                  (let [score              ; Score for this value
-                        (reduce
-                         +
-                         (for [gr (.getRegisteredGroundRules mgrs atom)]
-                           (dosync
-                            (GroundRules/getExpectedWeightedLogicalCompatibility gr))))]
-                    {:val possible-val :score score})))
-               best-val (:val (last (sort-by :score opts)))]
-           (.setValue atom best-val)      ; Keep the best value
-           (.commitToDB atom))         ; Change value in DB
-         )))))
+    (Grounding/groundAll model (PersistedAtomManager. database) mgrs) 
+
+    ;; Round random variable (open) atoms
+    (doseq [rv-pred open-predicates]
+      (dosync                  ; These comparisons cannot be done concurrently
+       (let
+           [;; Transform tvals to [.25,.75]
+            atoms
+            (for [atom (cu/dbgtim (Queries/getAllAtoms database rv-pred))]
+              (let [old-val (.getValue atom)
+                    new-val (->> old-val
+                                 (* 0.5)
+                                 (+ 0.25))]
+                (.setValue atom new-val)
+                atom))
+            ;; Sort by descending truth value: NOT known whether this is good
+            atoms (sort (comparator (fn [x y] (> (.getValue x) (.getValue y)))) 
+                        atoms)]
+         ;; Starting from an arbitrary atom, greedily discretize all
+         (doseq [atom atoms]
+           (dosync          ; These comparisons cannot be done concurrently
+            (let
+                [val-old (.getValue atom)  ; Remember old value
+                 opts                      ; Discrete options, with scores
+                 (for [val-new [0.0 1.0]]  ; Possible discrete values
+                   (dosync                 ; Avoid concurrency
+                    (.setValue atom val-new) ; Temporarily try value
+                    (let
+                        [score              ; Score for this value
+                         (reduce
+                          +
+                          (for [gr (.getRegisteredGroundRules mgrs atom)]
+                            (GroundRules/getExpectedWeightedLogicalCompatibility
+                             gr)))]
+                      (.setValue atom val-old) ; Restore old value
+                      {:val val-new :score score})))
+                 val-best (:val (last (sort-by :score opts)))]
+              (.setValue atom val-best)      ; Greedily select a value
+              (.commitToDB atom))         ; Change value in DB
+            )))))))
+
 (defn round-atoms-simple
   "Round atoms of open predicates, interpreting truth values as
   rounding probabilities."
