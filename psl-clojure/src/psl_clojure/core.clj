@@ -90,15 +90,17 @@
 
 (defn add-rule-string
   "Add a rule formatted as a string to the model."
-  ([model datastore rule-string weight squared]
+  ([model datastore rule-string weight squared name]
    (let [partial-rule (ModelLoader/loadRulePartial datastore rule-string)
          rule (do (assert (not (.isRule partial-rule)))
                   (.toRule partial-rule weight squared))]
+     (.setName rule name)
      (.addRule model rule)))
-  ([model datastore rule-string]
+  ([model datastore rule-string name]
    (let [partial-rule (ModelLoader/loadRulePartial datastore rule-string)
          rule (do (assert (.isRule partial-rule))
                   (.toRule partial-rule))]
+     (.setName rule name)
      (.addRule model rule))))
 
 ;;; =============== Other functions for using PSL ====================
