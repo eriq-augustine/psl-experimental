@@ -19,7 +19,7 @@
    [org.linqs.psl.database.rdbms RDBMSDataStore]
    [org.linqs.psl.model.atom QueryAtom]
    [org.linqs.psl.model.formula Conjunction Disjunction Negation Formula Implication]
-   [org.linqs.psl.model.rule UnweightedGroundRule WeightedGroundRule]
+   [org.linqs.psl.model.rule UnweightedRule UnweightedGroundRule WeightedGroundRule]
    [org.linqs.psl.model.rule.logical UnweightedGroundLogicalRule
     UnweightedLogicalRule WeightedLogicalRule]
    [org.linqs.psl.model.term UniqueStringID Variable Term Constant]
@@ -83,10 +83,16 @@
       {"on" (.getPredicate ~model (name '~predicate))
        "name" ~cname})))
 
-(defn add-rule [model formula weight squared name]
+(defn add-rule
   "Add a logical rule to the model."
-  (let [rule (WeightedLogicalRule. formula weight squared name)]
-    (.addRule model rule)))
+  ;; Weighted
+  ([model formula weight squared name]
+   (let [rule (WeightedLogicalRule. formula weight squared name)]
+     (.addRule model rule)))
+  ;; Unweighted
+  ([model formula name]
+   (let [rule (UnweightedLogicalRule. formula name)]
+     (.addRule model rule))))
 
 (defn add-rule-string
   "Add a rule formatted as a string to the model."
@@ -181,7 +187,7 @@
   "Return info about rules."
   [model]
   (for [k (.getRules model)]
-    (if (instance? UnweightedLogicalRule k)
+    (if (instance? UnweightedRule k)
       {:kind "constraint" :name (.getName k)}
       {:kind "compatibility" :name (.getName k) :weight (.getWeight k)})))
 
